@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role
+  recorderId   String?  @default("UNKNOWN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    Int?
+  creator      User?    @relation("CreatedUsers", fields: [createdBy], references: [id])
+  createdUsers User[]   @relation("CreatedUsers")
+}
+
+model Device {
+  device_id String  @id
+  is_active Boolean @default(true)
+}
+
+model Event {
+  id         BigInt         @id @default(autoincrement())
+  device_id  String
+  timestamp  BigInt
+  type       Int
+  image_path String?
+  max_score  Float?
+  created_at DateTime       @default(now())
+  ads        EventAd[]
+  channels   EventChannel[]
+  content    EventContent[]
+  labels     LabelEvent[]
+
+  @@index([device_id])
+  @@index([timestamp])
+}
+
+model EventAd {
+  id       Int    @id @default(autoincrement())
+  event_id BigInt
+  name     String
+  score    Float?
+  event    Event  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@index([event_id])
+  @@index([name])
+}
+
+model EventChannel {
+  id       Int    @id @default(autoincrement())
+  event_id BigInt
+  name     String
+  score    Float?
+  event    Event  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@index([event_id])
+  @@index([name])
+}
+
+model EventContent {
+  id       Int    @id @default(autoincrement())
+  event_id BigInt
+  name     String
+  score    Float?
+  event    Event  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@index([event_id])
+  @@index([name])
+}
+
+model Label {
+  id         Int           @id @default(autoincrement())
+  label_type String
+  created_by String
+  created_at DateTime      @default(now())
+  start_time BigInt
+  end_time   BigInt
+  notes      String?
+  ad         LabelAd?
+  error      LabelError?
+  events     LabelEvent[]
+  program    LabelProgram?
+  song       LabelSong?
+
+  @@index([label_type])
+  @@index([created_by])
+}
+
+model LabelEvent {
+  label_id Int
+  event_id BigInt
+  event    Event  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  label    Label  @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@id([label_id, event_id])
+  @@index([label_id])
+  @@index([event_id])
+}
+
+model LabelSong {
+  label_id     Int     @id
+  song_name    String
+  artist       String?
+  album        String?
+  language     String?
+  release_year Int?
+  label        Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
+}
+
+model LabelAd {
+  label_id Int     @id
+  type     AdType
+  brand    String
+  product  String?
+  category String?
+  sector   String?
+  format   String?
+  label    Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([brand])
+  @@index([type])
+}
+
+model LabelError {
+  label_id   Int    @id
+  error_type String
+  label      Label  @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([error_type])
+}
+
+model LabelProgram {
+  label_id       Int     @id
+  program_name   String
+  genre          String?
+  episode_number Int?
+  season_number  Int?
+  language       String?
+  label          Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([program_name])
+  @@index([genre])
+}
+
+enum Role {
+  ADMIN
+  ANNOTATOR
+}
+
+enum AdType {
+  COMMERCIAL_BREAK
+  SPOT_OUTSIDE_BREAK
+  AUTO_PROMO
+}
