@@ -134,7 +134,6 @@ export class AuthService {
             createdAt: true,
             updatedAt: true,
             createdBy: true,
-            // Excluded password from the response
           },
         }),
         prisma.user.count({ where: whereClause }),
@@ -204,9 +203,9 @@ export class AuthService {
     const adminExists = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
     if (!adminExists) {
       await this.createUser({
-        name: 'Ankur',
-        email: 'ankur.auti@inditronics.com',
-        password: 'Ankur@123',
+        name: 'Madhu',
+        email: 'madhu@sharecast.org.np',
+        password: 'madhu@123',
         role: 'ADMIN',
       });
       logger.info('Initial admin created successfully');

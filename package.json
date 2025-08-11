@@ -6,15 +6,30 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
-    "migrate": "prisma migrate dev",
-    "seed:admin": "ts-node src/seed.ts",
-    "seed:events": "ts-node src/event-seed.ts",
+    "dev:debug": "nodemon --inspect src/index.ts",
+    "dev:debug-brk": "nodemon --inspect-brk src/index.ts",
+    "dev:tsc": "tsc --noEmit",
+    "dev:tsc:watch": "tsc --noEmit --watch",
+
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:reset": "prisma migrate reset --force",
+    "prisma:db-push": "prisma db push",
+    "prisma:format": "prisma format",
+
+    "seed:admin": "ts-node src/seeds/admin-seed.ts",
+    "seed:events": "ts-node src/seeds/event-seed.ts",
+
     "build": "tsc",
     "build:watch": "tsc --watch",
+
     "clean": "rimraf dist",
+
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts"
@@ -58,6 +73,7 @@
     "@prisma/client": "^6.13.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "handlebars": "^4.7.8",

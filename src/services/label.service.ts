@@ -1,7 +1,7 @@
 import { prisma } from '../config/database';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler';
-import { CreateLabel, Label, UpdateLabel, GetUnlabeledEventsOptions, GetLabelsOptions } from '../types/label.type';
+import { CreateLabel, Label, UpdateLabel, GetUnlabeledEventsOptions, GetLabelsOptions, ProgramGuideLabel } from '../types/label.type';
 import { logger } from '../utils/logger';
 
 export class LabelService {
@@ -104,9 +104,34 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
 
     if (startDate || endDate) {
       whereClause.timestamp = {};
-      if (startDate) whereClause.timestamp.gte = BigInt(Math.floor(startDate.getTime() / 1000)); // Convert ms to seconds
-      if (endDate) whereClause.timestamp.lte = BigInt(Math.floor(endDate.getTime() / 1000)); // Convert ms to seconds
+      
+      // FIX: Handle timezone properly
+      if (startDate) {
+        // Option 1: If your DB stores timestamps in seconds (Unix timestamp)
+        // Convert to UTC and then to seconds
+        const startTimestamp = BigInt(Math.floor(startDate.getTime() / 1000));
+        whereClause.timestamp.gte = startTimestamp;
+        
+        // Option 2: If you need to preserve the original timezone
+        // You might need to adjust based on your timezone offset
+        // const offsetMinutes = startDate.getTimezoneOffset();
+        // const adjustedStart = new Date(startDate.getTime() - (offsetMinutes * 60 * 1000));
+        // whereClause.timestamp.gte = BigInt(Math.floor(adjustedStart.getTime() / 1000));
+      }
+      
+      if (endDate) {
+        const endTimestamp = BigInt(Math.floor(endDate.getTime() / 1000));
+        whereClause.timestamp.lte = endTimestamp;
+      }
     }
+
+    // Debug: Add logging to see what timestamps you're querying
+    logger.info('Query timestamps:', {
+      startDate: startDate?.toISOString(),
+      endDate: endDate?.toISOString(),
+      startTimestamp: startDate ? Math.floor(startDate.getTime() / 1000) : null,
+      endTimestamp: endDate ? Math.floor(endDate.getTime() / 1000) : null,
+    });
 
     if (deviceId) {
       whereClause.device_id = deviceId;
@@ -130,6 +155,15 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
       }),
       prisma.event.count({ where: whereClause }),
     ]);
+
+    // Debug: Log some sample timestamps from results
+    if (events.length > 0) {
+      logger.info('Sample event timestamps:', events.slice(0, 3).map(e => ({
+        id: e.id.toString(),
+        timestamp: e.timestamp.toString(),
+        timestampAsDate: new Date(Number(e.timestamp) * 1000).toISOString(),
+      })));
+    }
 
     return {
       events: events.map(event => ({
@@ -334,4 +368,115 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
       throw new AppError('Failed to delete labels', 500);
     }
   }
+
+ static async getProgramGuideByDate(
+  date: Date,
+  deviceId: string,
+  sort: 'asc' | 'desc' = 'desc'
+): Promise<ProgramGuideLabel[]> {
+  try {
+    // Validate deviceId
+    const device = await prisma.device.findUnique({
+      where: { device_id: deviceId },
+    });
+
+    if (!device) {
+      throw new AppError('Invalid device ID', 404);
+    }
+
+    // Convert date to start and end of day in UTC
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    const startTimestamp = BigInt(Math.floor(startOfDay.getTime() / 1000));
+    const endTimestamp = BigInt(Math.floor(endOfDay.getTime() / 1000));
+
+    const whereClause: Prisma.LabelWhereInput = {
+      OR: [
+        // Labels that start within the day
+        {
+          start_time: {
+            gte: startTimestamp,
+            lte: endTimestamp,
+          },
+        },
+        // Labels that end within the day
+        {
+          end_time: {
+            gte: startTimestamp,
+            lte: endTimestamp,
+          },
+        },
+        // Labels that span across the day
+        {
+          AND: [
+            { start_time: { lte: startTimestamp } },
+            { end_time: { gte: endTimestamp } },
+          ],
+        },
+      ],
+      events: {
+        some: {
+          event: {
+            device_id: deviceId,
+          },
+        },
+      },
+    };
+
+    const labels = await prisma.label.findMany({
+      where: whereClause,
+      orderBy: { start_time: sort },
+      include: {
+        events: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                image_path: true,
+                timestamp: true,
+                device_id: true,
+              },
+            },
+          },
+        },
+        song: true,
+        ad: true,
+        error: true,
+        program: true,
+      },
+    });
+
+    return labels.map(
+      (label) =>
+        ({
+          id: label.id,
+          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program',
+          created_by: label.created_by,
+          created_at: label.created_at,
+          start_time: label.start_time.toString(),
+          end_time: label.end_time.toString(),
+          notes: label.notes,
+          device_id: label.events[0]?.event.device_id || null, // Get device_id from first event
+          image_paths: label.events
+            .sort(
+              (a, b) => Number(a.event.timestamp) - Number(b.event.timestamp)
+            )
+            .map((e) => e.event.image_path),
+          song: label.song,
+          ad: label.ad,
+          error: label.error,
+          program: label.program,
+        }) as ProgramGuideLabel
+    );
+  } catch (error) {
+    logger.error('Error fetching program guide by date:', error);
+    throw new AppError(
+      error instanceof AppError ? error.message : 'Failed to fetch program guide',
+      error instanceof AppError ? error.statusCode : 500
+    );
+  }
+}
 }

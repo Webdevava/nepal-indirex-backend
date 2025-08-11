@@ -156,3 +156,28 @@ export interface LabelsListResponse extends BaseResponse {
     currentPage: number;
   };
 }
+
+export const ProgramGuideLabelSchema = z.object({
+  id: z.number(),
+  label_type: z.enum(['song', 'ad', 'error', 'program']),
+  created_by: z.string(),
+  created_at: z.date(),
+  start_time: z.string(),
+  end_time: z.string(),
+  notes: z.string().nullable(),
+  device_id: z.string().nullable(),
+  image_paths: z.array(z.string().nullable()),
+  song: LabelSongSchema.nullable(),
+  ad: LabelAdSchema.nullable(),
+  error: LabelErrorSchema.nullable(),
+  program: LabelProgramSchema.nullable(),
+});
+
+export type ProgramGuideLabel = z.infer<typeof ProgramGuideLabelSchema>;
+
+export interface ProgramGuideResponse extends BaseResponse {
+  data: {
+    date: string;
+    labels: ProgramGuideLabel[];
+  };
+}

@@ -8,7 +8,8 @@ const router = Router();
 router.post('/', authenticate, validateCreateLabel, LabelController.createLabel);
 router.get('/unlabeled', authenticate, LabelController.getUnlabeledEvents);
 router.get('/', authenticate, LabelController.getLabels);
-router.delete('/bulk', authenticate, LabelController.deleteLabelsBulk); // Move /bulk before /:id
+router.get('/program-guides/:date/:deviceId', LabelController.getProgramGuideByDate);
+router.delete('/bulk', authenticate, LabelController.deleteLabelsBulk);
 router.put('/:id', authenticate, validateUpdateLabel, LabelController.updateLabel);
 router.delete('/:id', authenticate, LabelController.deleteLabel);
 

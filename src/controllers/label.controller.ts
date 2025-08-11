@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { LabelService } from '../services/label.service';
 import { AppError } from '../middleware/errorHandler';
-import { CreateLabel, LabelResponse, LabelsListResponse, UpdateLabel, BaseResponse } from '../types/label.type';
+import { CreateLabel, LabelResponse, LabelsListResponse, UpdateLabel, BaseResponse, ProgramGuideResponse } from '../types/label.type';
 
 export class LabelController {
   static async createLabel(req: Request, res: Response<LabelResponse>) {
@@ -132,4 +132,40 @@ export class LabelController {
       message: 'Labels deleted successfully',
     });
   }
+
+static async getProgramGuideByDate(req: Request, res: Response<ProgramGuideResponse>) {
+  const { date, deviceId } = req.params;
+
+  if (!date) {
+    throw new AppError('Date is required in format YYYY-MM-DD', 400);
+  }
+
+  if (!deviceId) {
+    throw new AppError('Device ID is required', 400);
+  }
+
+  // Validate date format (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) {
+    throw new AppError('Invalid date format. Use YYYY-MM-DD', 400);
+  }
+
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    throw new AppError('Invalid date', 400);
+  }
+
+  const sort = (req.query.sort as 'asc' | 'desc') || 'desc';
+
+  const labels = await LabelService.getProgramGuideByDate(parsedDate, deviceId, sort);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Program guide fetched successfully',
+    data: {
+      date,
+      labels,
+    },
+  });
+}
 }
