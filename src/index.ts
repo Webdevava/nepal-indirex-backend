@@ -24,9 +24,13 @@ const PORT = process.env.PORT;
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(o => o.trim()),
   credentials: true
 }));
+
+
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
