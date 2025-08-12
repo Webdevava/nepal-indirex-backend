@@ -13,6 +13,7 @@ export class EventController {
       deviceId: req.query.deviceId as string | undefined,
       types: req.query.types ? (req.query.types as string).split(',').map(Number).filter(n => !isNaN(n)) : undefined,
       sort: (req.query.sort as 'asc' | 'desc') || 'desc',
+      category: req.query.category as 'ads' | 'channels' | 'content' | undefined,
     };
 
     if (options.startDate && isNaN(options.startDate.getTime())) {

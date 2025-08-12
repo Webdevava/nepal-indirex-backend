@@ -11,7 +11,8 @@ export interface GetEventsOptions {
   endDate?: Date | undefined;
   deviceId?: string | undefined;
   types?: number[] | undefined;
-  sort?: 'asc' | 'desc';
+  sort?: 'asc' | 'desc' | undefined;
+  category?: 'ads' | 'channels' | 'content' | undefined;
 }
 
 export interface GetEventsResult {
@@ -64,7 +65,7 @@ const serializeEvent = (event: any): Event => {
 
 export class EventService {
   static async getEvents(options: GetEventsOptions): Promise<GetEventsResult> {
-    const { page, limit, startDate, endDate, deviceId, types, sort } = options;
+    const { page, limit, startDate, endDate, deviceId, types, sort, category } = options;
     const skip = (page - 1) * limit;
 
     try {
@@ -82,6 +83,16 @@ export class EventService {
 
       if (types && types.length > 0) {
         whereClause.type = { in: types };
+      }
+
+      if (category) {
+        if (category === 'ads') {
+          whereClause.ads = { some: {} };
+        } else if (category === 'channels') {
+          whereClause.channels = { some: {} };
+        } else if (category === 'content') {
+          whereClause.content = { some: {} };
+        }
       }
 
       const [events, total] = await Promise.all([

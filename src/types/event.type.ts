@@ -42,7 +42,8 @@ export interface GetEventsOptions {
   endDate?: Date | undefined;
   deviceId?: string | undefined;
   types?: number[] | undefined;
-  sort?: 'asc' | 'desc';
+  sort?: 'asc' | 'desc' | undefined;
+  category?: 'ads' | 'channels' | 'content' | undefined;
 }
 
 export interface GetEventsResult {
