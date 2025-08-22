@@ -112,6 +112,7 @@ model Label {
   events     LabelEvent[]
   program    LabelProgram?
   song       LabelSong?
+  movie      LabelMovie?
 
   @@index([label_type])
   @@index([created_by])
@@ -171,6 +172,22 @@ model LabelProgram {
 
   @@index([program_name])
   @@index([genre])
+}
+
+model LabelMovie {
+  label_id     Int     @id
+  movie_name   String
+  genre        String?
+  director     String?
+  release_year Int?
+  language     String?
+  duration     Int?    // Duration in minutes
+  rating       String? // Movie rating (e.g., PG, R, etc.)
+  label        Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([movie_name])
+  @@index([genre])
+  @@index([director])
 }
 
 enum Role {

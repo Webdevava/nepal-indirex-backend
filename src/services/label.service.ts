@@ -30,7 +30,7 @@ export class LabelService {
         created_by: data.created_by,
         start_time,
         end_time,
-        notes: data.notes,
+        notes: data.notes ?? null, // Convert undefined to null
         events: {
           create: eventIds.map(event_id => ({
             event: { connect: { id: event_id } },
@@ -46,6 +46,8 @@ export class LabelService {
         labelData.error = { create: data.error };
       } else if (data.label_type === 'program' && data.program) {
         labelData.program = { create: data.program };
+      } else if (data.label_type === 'movie' && data.movie) {
+        labelData.movie = { create: data.movie };
       }
 
       const label = await prisma.label.create({
@@ -56,6 +58,7 @@ export class LabelService {
           ad: true,
           error: true,
           program: true,
+          movie: true,
         },
       });
 
@@ -67,7 +70,7 @@ export class LabelService {
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -78,6 +81,7 @@ export class LabelService {
         ad: label.ad,
         error: label.error,
         program: label.program,
+        movie: label.movie,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -88,98 +92,98 @@ export class LabelService {
     }
   }
 
-static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
-  events: any[];
-  total: number;
-  totalPages: number;
-  currentPage: number;
-}> {
-  const { page, limit, startDate, endDate, deviceId, types, sort } = options;
-  const skip = (page - 1) * limit;
+  static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
+    events: any[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    const { page, limit, startDate, endDate, deviceId, types, sort } = options;
+    const skip = (page - 1) * limit;
 
-  try {
-    const whereClause: Prisma.EventWhereInput = {
-      labels: { none: {} },
-    };
+    try {
+      const whereClause: Prisma.EventWhereInput = {
+        labels: { none: {} },
+      };
 
-    if (startDate || endDate) {
-      whereClause.timestamp = {};
-      
-      // FIX: Handle timezone properly
-      if (startDate) {
-        // Option 1: If your DB stores timestamps in seconds (Unix timestamp)
-        // Convert to UTC and then to seconds
-        const startTimestamp = BigInt(Math.floor(startDate.getTime() / 1000));
-        whereClause.timestamp.gte = startTimestamp;
+      if (startDate || endDate) {
+        whereClause.timestamp = {};
         
-        // Option 2: If you need to preserve the original timezone
-        // You might need to adjust based on your timezone offset
-        // const offsetMinutes = startDate.getTimezoneOffset();
-        // const adjustedStart = new Date(startDate.getTime() - (offsetMinutes * 60 * 1000));
-        // whereClause.timestamp.gte = BigInt(Math.floor(adjustedStart.getTime() / 1000));
+        // FIX: Handle timezone properly
+        if (startDate) {
+          // Option 1: If your DB stores timestamps in seconds (Unix timestamp)
+          // Convert to UTC and then to seconds
+          const startTimestamp = BigInt(Math.floor(startDate.getTime() / 1000));
+          whereClause.timestamp.gte = startTimestamp;
+          
+          // Option 2: If you need to preserve the original timezone
+          // You might need to adjust based on your timezone offset
+          // const offsetMinutes = startDate.getTimezoneOffset();
+          // const adjustedStart = new Date(startDate.getTime() - (offsetMinutes * 60 * 1000));
+          // whereClause.timestamp.gte = BigInt(Math.floor(adjustedStart.getTime() / 1000));
+        }
+        
+        if (endDate) {
+          const endTimestamp = BigInt(Math.floor(endDate.getTime() / 1000));
+          whereClause.timestamp.lte = endTimestamp;
+        }
       }
-      
-      if (endDate) {
-        const endTimestamp = BigInt(Math.floor(endDate.getTime() / 1000));
-        whereClause.timestamp.lte = endTimestamp;
+
+      // Debug: Add logging to see what timestamps you're querying
+      logger.info('Query timestamps:', {
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+        startTimestamp: startDate ? Math.floor(startDate.getTime() / 1000) : null,
+        endTimestamp: endDate ? Math.floor(endDate.getTime() / 1000) : null,
+      });
+
+      if (deviceId) {
+        whereClause.device_id = deviceId;
       }
+
+      if (types && types.length > 0) {
+        whereClause.type = { in: types };
+      }
+
+      const [events, total] = await Promise.all([
+        prisma.event.findMany({
+          where: whereClause,
+          skip,
+          take: limit,
+          orderBy: { timestamp: sort || 'desc' },
+          include: {
+            ads: true,
+            channels: true,
+            content: true,
+          },
+        }),
+        prisma.event.count({ where: whereClause }),
+      ]);
+
+      // Debug: Log some sample timestamps from results
+      if (events.length > 0) {
+        logger.info('Sample event timestamps:', events.slice(0, 3).map(e => ({
+          id: e.id.toString(),
+          timestamp: e.timestamp.toString(),
+          timestampAsDate: new Date(Number(e.timestamp) * 1000).toISOString(),
+        })));
+      }
+
+      return {
+        events: events.map(event => ({
+          ...event,
+          id: event.id.toString(),
+          timestamp: event.timestamp.toString(),
+        })),
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      };
+    } catch (error) {
+      logger.error('Error fetching unlabeled events:', error);
+      throw new AppError('Failed to fetch unlabeled events', 500);
     }
-
-    // Debug: Add logging to see what timestamps you're querying
-    logger.info('Query timestamps:', {
-      startDate: startDate?.toISOString(),
-      endDate: endDate?.toISOString(),
-      startTimestamp: startDate ? Math.floor(startDate.getTime() / 1000) : null,
-      endTimestamp: endDate ? Math.floor(endDate.getTime() / 1000) : null,
-    });
-
-    if (deviceId) {
-      whereClause.device_id = deviceId;
-    }
-
-    if (types && types.length > 0) {
-      whereClause.type = { in: types };
-    }
-
-    const [events, total] = await Promise.all([
-      prisma.event.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy: { timestamp: sort || 'desc' },
-        include: {
-          ads: true,
-          channels: true,
-          content: true,
-        },
-      }),
-      prisma.event.count({ where: whereClause }),
-    ]);
-
-    // Debug: Log some sample timestamps from results
-    if (events.length > 0) {
-      logger.info('Sample event timestamps:', events.slice(0, 3).map(e => ({
-        id: e.id.toString(),
-        timestamp: e.timestamp.toString(),
-        timestampAsDate: new Date(Number(e.timestamp) * 1000).toISOString(),
-      })));
-    }
-
-    return {
-      events: events.map(event => ({
-        ...event,
-        id: event.id.toString(),
-        timestamp: event.timestamp.toString(),
-      })),
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-    };
-  } catch (error) {
-    logger.error('Error fetching unlabeled events:', error);
-    throw new AppError('Failed to fetch unlabeled events', 500);
   }
-}
 
   static async getLabels(options: GetLabelsOptions): Promise<{
     labels: Label[];
@@ -223,6 +227,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
             ad: true,
             error: true,
             program: true,
+            movie: true,
           },
         }),
         prisma.label.count({ where: whereClause }),
@@ -232,7 +237,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
         labels: labels.map(label => ({
           id: label.id,
           event_ids: label.events.map(e => e.event_id.toString()),
-          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program',
+          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
           created_by: label.created_by,
           created_at: label.created_at,
           start_time: label.start_time.toString(),
@@ -245,6 +250,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
           ad: label.ad,
           error: label.error,
           program: label.program,
+          movie: label.movie,
         })),
         total,
         totalPages: Math.ceil(total / limit),
@@ -265,7 +271,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
       }
 
       if (data.notes !== undefined) {
-        updateData.notes = data.notes;
+        updateData.notes = data.notes ?? null; // Convert undefined to null
       }
 
       let image_paths: (string | null)[] = [];
@@ -300,6 +306,8 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
         updateData.error = { upsert: { create: data.error, update: data.error } };
       } else if (data.label_type === 'program' && data.program) {
         updateData.program = { upsert: { create: data.program, update: data.program } };
+      } else if (data.label_type === 'movie' && data.movie) {
+        updateData.movie = { upsert: { create: data.movie, update: data.movie } };
       }
 
       const label = await prisma.label.update({
@@ -311,6 +319,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
           ad: true,
           error: true,
           program: true,
+          movie: true,
         },
       });
 
@@ -325,7 +334,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -336,6 +345,7 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
         ad: label.ad,
         error: label.error,
         program: label.program,
+        movie: label.movie,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
@@ -369,114 +379,116 @@ static async getUnlabeledEvents(options: GetUnlabeledEventsOptions): Promise<{
     }
   }
 
- static async getProgramGuideByDate(
-  date: Date,
-  deviceId: string,
-  sort: 'asc' | 'desc' = 'desc'
-): Promise<ProgramGuideLabel[]> {
-  try {
-    // Validate deviceId
-    const device = await prisma.device.findUnique({
-      where: { device_id: deviceId },
-    });
+  static async getProgramGuideByDate(
+    date: Date,
+    deviceId: string,
+    sort: 'asc' | 'desc' = 'desc'
+  ): Promise<ProgramGuideLabel[]> {
+    try {
+      // Validate deviceId
+      const device = await prisma.device.findUnique({
+        where: { device_id: deviceId },
+      });
 
-    if (!device) {
-      throw new AppError('Invalid device ID', 404);
-    }
+      if (!device) {
+        throw new AppError('Invalid device ID', 404);
+      }
 
-    // Convert date to start and end of day in UTC
-    const startOfDay = new Date(date);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+      // Convert date to start and end of day in UTC
+      const startOfDay = new Date(date);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
-    const startTimestamp = BigInt(Math.floor(startOfDay.getTime() / 1000));
-    const endTimestamp = BigInt(Math.floor(endOfDay.getTime() / 1000));
+      const startTimestamp = BigInt(Math.floor(startOfDay.getTime() / 1000));
+      const endTimestamp = BigInt(Math.floor(endOfDay.getTime() / 1000));
 
-    const whereClause: Prisma.LabelWhereInput = {
-      OR: [
-        // Labels that start within the day
-        {
-          start_time: {
-            gte: startTimestamp,
-            lte: endTimestamp,
+      const whereClause: Prisma.LabelWhereInput = {
+        OR: [
+          // Labels that start within the day
+          {
+            start_time: {
+              gte: startTimestamp,
+              lte: endTimestamp,
+            },
           },
-        },
-        // Labels that end within the day
-        {
-          end_time: {
-            gte: startTimestamp,
-            lte: endTimestamp,
+          // Labels that end within the day
+          {
+            end_time: {
+              gte: startTimestamp,
+              lte: endTimestamp,
+            },
           },
-        },
-        // Labels that span across the day
-        {
-          AND: [
-            { start_time: { lte: startTimestamp } },
-            { end_time: { gte: endTimestamp } },
-          ],
-        },
-      ],
-      events: {
-        some: {
-          event: {
-            device_id: deviceId,
+          // Labels that span across the day
+          {
+            AND: [
+              { start_time: { lte: startTimestamp } },
+              { end_time: { gte: endTimestamp } },
+            ],
           },
-        },
-      },
-    };
-
-    const labels = await prisma.label.findMany({
-      where: whereClause,
-      orderBy: { start_time: sort },
-      include: {
+        ],
         events: {
-          include: {
+          some: {
             event: {
-              select: {
-                id: true,
-                image_path: true,
-                timestamp: true,
-                device_id: true,
-              },
+              device_id: deviceId,
             },
           },
         },
-        song: true,
-        ad: true,
-        error: true,
-        program: true,
-      },
-    });
+      };
 
-    return labels.map(
-      (label) =>
-        ({
-          id: label.id,
-          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program',
-          created_by: label.created_by,
-          created_at: label.created_at,
-          start_time: label.start_time.toString(),
-          end_time: label.end_time.toString(),
-          notes: label.notes,
-          device_id: label.events[0]?.event.device_id || null, // Get device_id from first event
-          image_paths: label.events
-            .sort(
-              (a, b) => Number(a.event.timestamp) - Number(b.event.timestamp)
-            )
-            .map((e) => e.event.image_path),
-          song: label.song,
-          ad: label.ad,
-          error: label.error,
-          program: label.program,
-        }) as ProgramGuideLabel
-    );
-  } catch (error) {
-    logger.error('Error fetching program guide by date:', error);
-    throw new AppError(
-      error instanceof AppError ? error.message : 'Failed to fetch program guide',
-      error instanceof AppError ? error.statusCode : 500
-    );
+      const labels = await prisma.label.findMany({
+        where: whereClause,
+        orderBy: { start_time: sort },
+        include: {
+          events: {
+            include: {
+              event: {
+                select: {
+                  id: true,
+                  image_path: true,
+                  timestamp: true,
+                  device_id: true,
+                },
+              },
+            },
+          },
+          song: true,
+          ad: true,
+          error: true,
+          program: true,
+          movie: true,
+        },
+      });
+
+      return labels.map(
+        (label) =>
+          ({
+            id: label.id,
+            label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
+            created_by: label.created_by,
+            created_at: label.created_at,
+            start_time: label.start_time.toString(),
+            end_time: label.end_time.toString(),
+            notes: label.notes,
+            device_id: label.events[0]?.event.device_id || null, // Get device_id from first event
+            image_paths: label.events
+              .sort(
+                (a, b) => Number(a.event.timestamp) - Number(b.event.timestamp)
+              )
+              .map((e) => e.event.image_path),
+            song: label.song,
+            ad: label.ad,
+            error: label.error,
+            program: label.program,
+            movie: label.movie,
+          }) as ProgramGuideLabel
+      );
+    } catch (error) {
+      logger.error('Error fetching program guide by date:', error);
+      throw new AppError(
+        error instanceof AppError ? error.message : 'Failed to fetch program guide',
+        error instanceof AppError ? error.statusCode : 500
+      );
+    }
   }
-}
 }

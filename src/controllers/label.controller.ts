@@ -133,39 +133,67 @@ export class LabelController {
     });
   }
 
-static async getProgramGuideByDate(req: Request, res: Response<ProgramGuideResponse>) {
-  const { date, deviceId } = req.params;
+  static async getProgramGuideByDate(req: Request, res: Response<ProgramGuideResponse>) {
+    const { date, deviceId } = req.params;
 
-  if (!date) {
-    throw new AppError('Date is required in format YYYY-MM-DD', 400);
+    if (!date) {
+      throw new AppError('Date is required in format YYYY-MM-DD', 400);
+    }
+
+    if (!deviceId) {
+      throw new AppError('Device ID is required', 400);
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new AppError('Invalid date format. Use YYYY-MM-DD', 400);
+    }
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      throw new AppError('Invalid date', 400);
+    }
+
+    const sort = (req.query.sort as 'asc' | 'desc') || 'desc';
+
+    const labels = await LabelService.getProgramGuideByDate(parsedDate, deviceId, sort);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Program guide fetched successfully',
+      data: {
+        date,
+        labels,
+      },
+    });
   }
 
-  if (!deviceId) {
-    throw new AppError('Device ID is required', 400);
+  static async getMovies(req: Request, res: Response<LabelsListResponse>) {
+    const options = {
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 10,
+      startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+      endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+      createdBy: req.query.createdBy as string | undefined,
+      labelType: 'movie' as string,
+      deviceId: req.query.deviceId as string | undefined,
+      sort: (req.query.sort as 'asc' | 'desc') || 'desc',
+    };
+
+    if (options.startDate && isNaN(options.startDate.getTime())) {
+      throw new AppError('Invalid start date', 400);
+    }
+    if (options.endDate && isNaN(options.endDate.getTime())) {
+      throw new AppError('Invalid end date', 400);
+    }
+
+    const result = await LabelService.getLabels(options);
+ 
+    return res.status(200).json({
+      success: true,
+      message: 'Movie labels fetched successfully',
+      data: result,
+    });
   }
-
-  // Validate date format (YYYY-MM-DD)
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(date)) {
-    throw new AppError('Invalid date format. Use YYYY-MM-DD', 400);
-  }
-
-  const parsedDate = new Date(date);
-  if (isNaN(parsedDate.getTime())) {
-    throw new AppError('Invalid date', 400);
-  }
-
-  const sort = (req.query.sort as 'asc' | 'desc') || 'desc';
-
-  const labels = await LabelService.getProgramGuideByDate(parsedDate, deviceId, sort);
-
-  return res.status(200).json({
-    success: true,
-    message: 'Program guide fetched successfully',
-    data: {
-      date,
-      labels,
-    },
-  });
-}
 }
