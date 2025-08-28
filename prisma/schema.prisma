@@ -113,6 +113,7 @@ model Label {
   program    LabelProgram?
   song       LabelSong?
   movie      LabelMovie?
+  promo      LabelPromo?
 
   @@index([label_type])
   @@index([created_by])
@@ -153,6 +154,19 @@ model LabelAd {
   @@index([type])
 }
 
+model LabelPromo {
+  label_id      Int      @id
+  promo_type    PromoType
+  program_name  String?
+  movie_name    String?
+  event_name    String?
+  label         Label    @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([promo_type])
+  @@index([program_name])
+  @@index([movie_name])
+}
+
 model LabelError {
   label_id   Int    @id
   error_type String
@@ -181,8 +195,8 @@ model LabelMovie {
   director     String?
   release_year Int?
   language     String?
-  duration     Int?    // Duration in minutes
-  rating       String? // Movie rating (e.g., PG, R, etc.)
+  duration     Int?
+  rating       String?
   label        Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
 
   @@index([movie_name])
@@ -198,5 +212,11 @@ enum Role {
 enum AdType {
   COMMERCIAL_BREAK
   SPOT_OUTSIDE_BREAK
-  AUTO_PROMO
+}
+
+enum PromoType {
+  TRAILER
+  ANNOUNCEMENT
+  TEASER
+  PROMO_SPOT
 }

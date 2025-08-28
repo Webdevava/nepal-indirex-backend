@@ -59,7 +59,7 @@ export class ReportService {
           return {
             user: label.created_by,
             labelCount: label._count.id,
-            labelType: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | null,
+            labelType: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
             deviceIds,
             createdAt: label.created_at,
           };
@@ -191,7 +191,8 @@ export class ReportService {
               ad: true,
               error: true,
               program: true,
-              movie: true, // Added movie include
+              movie: true,
+              promo: true,
             },
           });
           return {
@@ -200,7 +201,7 @@ export class ReportService {
             labels: userLabels.map(l => ({
               id: l.id,
               event_ids: l.events.map(e => e.event_id.toString()),
-              label_type: l.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie', // Added movie type
+              label_type: l.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
               created_by: l.created_by,
               created_at: l.created_at,
               start_time: l.start_time.toString(),
@@ -213,7 +214,8 @@ export class ReportService {
               ad: l.ad,
               error: l.error,
               program: l.program,
-              movie: l.movie, // Added movie field
+              movie: l.movie,
+              promo: l.promo,
             })),
           };
         })
@@ -281,7 +283,7 @@ export class ReportService {
       });
 
       const report: LabelTypeDistributionReport[] = labels.map(label => ({
-        labelType: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie', // Added movie type
+        labelType: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
         count: label._count.id,
         percentage: totalLabels > 0 ? (label._count.id / totalLabels) * 100 : 0,
       }));
@@ -353,7 +355,7 @@ export class ReportService {
             labeledEvents: labeledEvents.length,
             unlabeledEvents: device._count.id - labeledEvents.length,
             labelTypes: labelTypes.map(lt => ({
-              labelType: lt.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie', // Added movie type
+              labelType: lt.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
               count: lt._count.id,
             })),
           };

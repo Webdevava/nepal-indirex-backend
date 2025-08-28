@@ -21,7 +21,6 @@ export class LabelService {
       const start_time = BigInt(Math.min(...timestamps));
       const end_time = BigInt(Math.max(...timestamps));
 
-      // Sort events by timestamp to get image_paths in order (oldest first)
       const sortedEvents = events.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
       const image_paths = sortedEvents.map(e => e.image_path);
 
@@ -30,7 +29,7 @@ export class LabelService {
         created_by: data.created_by,
         start_time,
         end_time,
-        notes: data.notes ?? null, // Convert undefined to null
+        notes: data.notes ?? null,
         events: {
           create: eventIds.map(event_id => ({
             event: { connect: { id: event_id } },
@@ -48,6 +47,8 @@ export class LabelService {
         labelData.program = { create: data.program };
       } else if (data.label_type === 'movie' && data.movie) {
         labelData.movie = { create: data.movie };
+      } else if (data.label_type === 'promo' && data.promo) {
+        labelData.promo = { create: data.promo };
       }
 
       const label = await prisma.label.create({
@@ -59,10 +60,10 @@ export class LabelService {
           error: true,
           program: true,
           movie: true,
+          promo: true,
         },
       });
 
-      // Sort image_paths by timestamp
       const sortedImagePaths = label.events
         .sort((a, b) => Number(a.event.timestamp) - Number(b.event.timestamp))
         .map(e => e.event.image_path);
@@ -70,7 +71,7 @@ export class LabelService {
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -82,6 +83,7 @@ export class LabelService {
         error: label.error,
         program: label.program,
         movie: label.movie,
+        promo: label.promo,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -108,28 +110,16 @@ export class LabelService {
 
       if (startDate || endDate) {
         whereClause.timestamp = {};
-        
-        // FIX: Handle timezone properly
         if (startDate) {
-          // Option 1: If your DB stores timestamps in seconds (Unix timestamp)
-          // Convert to UTC and then to seconds
           const startTimestamp = BigInt(Math.floor(startDate.getTime() / 1000));
           whereClause.timestamp.gte = startTimestamp;
-          
-          // Option 2: If you need to preserve the original timezone
-          // You might need to adjust based on your timezone offset
-          // const offsetMinutes = startDate.getTimezoneOffset();
-          // const adjustedStart = new Date(startDate.getTime() - (offsetMinutes * 60 * 1000));
-          // whereClause.timestamp.gte = BigInt(Math.floor(adjustedStart.getTime() / 1000));
         }
-        
         if (endDate) {
           const endTimestamp = BigInt(Math.floor(endDate.getTime() / 1000));
           whereClause.timestamp.lte = endTimestamp;
         }
       }
 
-      // Debug: Add logging to see what timestamps you're querying
       logger.info('Query timestamps:', {
         startDate: startDate?.toISOString(),
         endDate: endDate?.toISOString(),
@@ -160,7 +150,6 @@ export class LabelService {
         prisma.event.count({ where: whereClause }),
       ]);
 
-      // Debug: Log some sample timestamps from results
       if (events.length > 0) {
         logger.info('Sample event timestamps:', events.slice(0, 3).map(e => ({
           id: e.id.toString(),
@@ -228,6 +217,7 @@ export class LabelService {
             error: true,
             program: true,
             movie: true,
+            promo: true,
           },
         }),
         prisma.label.count({ where: whereClause }),
@@ -237,7 +227,7 @@ export class LabelService {
         labels: labels.map(label => ({
           id: label.id,
           event_ids: label.events.map(e => e.event_id.toString()),
-          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
+          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
           created_by: label.created_by,
           created_at: label.created_at,
           start_time: label.start_time.toString(),
@@ -251,6 +241,7 @@ export class LabelService {
           error: label.error,
           program: label.program,
           movie: label.movie,
+          promo: label.promo,
         })),
         total,
         totalPages: Math.ceil(total / limit),
@@ -271,7 +262,7 @@ export class LabelService {
       }
 
       if (data.notes !== undefined) {
-        updateData.notes = data.notes ?? null; // Convert undefined to null
+        updateData.notes = data.notes ?? null;
       }
 
       let image_paths: (string | null)[] = [];
@@ -286,7 +277,6 @@ export class LabelService {
           throw new AppError('One or more events not found', 404);
         }
 
-        // Sort events by timestamp to get image_paths in order
         const sortedEvents = events.sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
         image_paths = sortedEvents.map(e => e.image_path);
 
@@ -308,6 +298,8 @@ export class LabelService {
         updateData.program = { upsert: { create: data.program, update: data.program } };
       } else if (data.label_type === 'movie' && data.movie) {
         updateData.movie = { upsert: { create: data.movie, update: data.movie } };
+      } else if (data.label_type === 'promo' && data.promo) {
+        updateData.promo = { upsert: { create: data.promo, update: data.promo } };
       }
 
       const label = await prisma.label.update({
@@ -320,10 +312,10 @@ export class LabelService {
           error: true,
           program: true,
           movie: true,
+          promo: true,
         },
       });
 
-      // Use updated image_paths if event_ids were provided, otherwise sort existing ones
       const sortedImagePaths =
         data.event_ids !== undefined
           ? image_paths
@@ -334,7 +326,7 @@ export class LabelService {
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -346,6 +338,7 @@ export class LabelService {
         error: label.error,
         program: label.program,
         movie: label.movie,
+        promo: label.promo,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
@@ -385,7 +378,6 @@ export class LabelService {
     sort: 'asc' | 'desc' = 'desc'
   ): Promise<ProgramGuideLabel[]> {
     try {
-      // Validate deviceId
       const device = await prisma.device.findUnique({
         where: { device_id: deviceId },
       });
@@ -394,7 +386,6 @@ export class LabelService {
         throw new AppError('Invalid device ID', 404);
       }
 
-      // Convert date to start and end of day in UTC
       const startOfDay = new Date(date);
       startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
@@ -405,21 +396,18 @@ export class LabelService {
 
       const whereClause: Prisma.LabelWhereInput = {
         OR: [
-          // Labels that start within the day
           {
             start_time: {
               gte: startTimestamp,
               lte: endTimestamp,
             },
           },
-          // Labels that end within the day
           {
             end_time: {
               gte: startTimestamp,
               lte: endTimestamp,
             },
           },
-          // Labels that span across the day
           {
             AND: [
               { start_time: { lte: startTimestamp } },
@@ -457,6 +445,7 @@ export class LabelService {
           error: true,
           program: true,
           movie: true,
+          promo: true,
         },
       });
 
@@ -464,13 +453,13 @@ export class LabelService {
         (label) =>
           ({
             id: label.id,
-            label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie',
+            label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
             created_by: label.created_by,
             created_at: label.created_at,
             start_time: label.start_time.toString(),
             end_time: label.end_time.toString(),
             notes: label.notes,
-            device_id: label.events[0]?.event.device_id || null, // Get device_id from first event
+            device_id: label.events[0]?.event.device_id || null,
             image_paths: label.events
               .sort(
                 (a, b) => Number(a.event.timestamp) - Number(b.event.timestamp)
@@ -481,6 +470,7 @@ export class LabelService {
             error: label.error,
             program: label.program,
             movie: label.movie,
+            promo: label.promo,
           }) as ProgramGuideLabel
       );
     } catch (error) {
