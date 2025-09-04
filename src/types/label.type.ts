@@ -13,13 +13,26 @@ export type LabelSong = z.infer<typeof LabelSongSchema>;
 
 export const LabelAdSchema = z.object({
   label_id: z.number().optional(),
-  type: z.enum(['COMMERCIAL_BREAK', 'SPOT_OUTSIDE_BREAK']),
-  brand: z.string().min(1, 'Brand is required'),
+  type: z.enum(['COMMERCIAL_BREAK', 'SPOT_OUTSIDE_BREAK', 'PSA']),
+  brand: z.string().min(1, 'Brand is required').nullable(),
   product: z.string().nullable(),
-  category: z.string().nullable(),
+  category: z.string().min(1, 'Category is required for PSA').nullable(),
   sector: z.string().nullable(),
   format: z.string().nullable(),
-});
+  title: z.string().min(1, 'Title is required for PSA').nullable(),
+  language: z.string().min(1, 'Language is required for PSA').nullable(),
+}).refine(
+  (data) => {
+    if (data.type === 'PSA') {
+      return data.title !== null && data.category !== null && data.language !== null;
+    }
+    return true;
+  },
+  {
+    message: 'Title, category, and language are required for PSA ads',
+    path: ['type'],
+  }
+);
 
 export type LabelAd = z.infer<typeof LabelAdSchema>;
 
@@ -64,10 +77,20 @@ export const LabelMovieSchema = z.object({
 
 export type LabelMovie = z.infer<typeof LabelMovieSchema>;
 
+export const LabelSportsSchema = z.object({
+  label_id: z.number().optional(),
+  program_title: z.string().min(1, 'Program title is required'),
+  sport_type: z.string().min(1, 'Sport type is required'),
+  program_category: z.string().min(1, 'Program category is required'),
+  language: z.string().nullable(),
+});
+
+export type LabelSports = z.infer<typeof LabelSportsSchema>;
+
 export const LabelSchema = z.object({
   id: z.number(),
   event_ids: z.array(z.string()),
-  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo']),
+  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo', 'sports']),
   created_by: z.string(),
   created_at: z.date(),
   start_time: z.string(),
@@ -80,13 +103,14 @@ export const LabelSchema = z.object({
   program: LabelProgramSchema.nullable(),
   movie: LabelMovieSchema.nullable(),
   promo: LabelPromoSchema.nullable(),
+  sports: LabelSportsSchema.nullable(),
 });
 
 export type Label = z.infer<typeof LabelSchema>;
 
 export const CreateLabelSchema = z.object({
   event_ids: z.array(z.string()).min(1, 'At least one event ID is required'),
-  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo']),
+  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo', 'sports']),
   notes: z.string().nullable().optional(),
   song: LabelSongSchema.optional(),
   ad: LabelAdSchema.optional(),
@@ -94,6 +118,7 @@ export const CreateLabelSchema = z.object({
   program: LabelProgramSchema.optional(),
   movie: LabelMovieSchema.optional(),
   promo: LabelPromoSchema.optional(),
+  sports: LabelSportsSchema.optional(),
 }).refine(
   data => {
     if (data.label_type === 'song' && !data.song) return false;
@@ -102,12 +127,14 @@ export const CreateLabelSchema = z.object({
     if (data.label_type === 'program' && !data.program) return false;
     if (data.label_type === 'movie' && !data.movie) return false;
     if (data.label_type === 'promo' && !data.promo) return false;
-    if (data.label_type === 'song' && (data.ad || data.error || data.program || data.movie || data.promo)) return false;
-    if (data.label_type === 'ad' && (data.song || data.error || data.program || data.movie || data.promo)) return false;
-    if (data.label_type === 'error' && (data.song || data.ad || data.program || data.movie || data.promo)) return false;
-    if (data.label_type === 'program' && (data.song || data.ad || data.error || data.movie || data.promo)) return false;
-    if (data.label_type === 'movie' && (data.song || data.ad || data.error || data.program || data.promo)) return false;
-    if (data.label_type === 'promo' && (data.song || data.ad || data.error || data.program || data.movie)) return false;
+    if (data.label_type === 'sports' && !data.sports) return false;
+    if (data.label_type === 'song' && (data.ad || data.error || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type === 'ad' && (data.song || data.error || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type === 'error' && (data.song || data.ad || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type === 'program' && (data.song || data.ad || data.error || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type === 'movie' && (data.song || data.ad || data.error || data.program || data.promo || data.sports)) return false;
+    if (data.label_type === 'promo' && (data.song || data.ad || data.error || data.program || data.movie || data.sports)) return false;
+    if (data.label_type === 'sports' && (data.song || data.ad || data.error || data.program || data.movie || data.promo)) return false;
     return true;
   },
   {
@@ -119,7 +146,7 @@ export const CreateLabelSchema = z.object({
 export type CreateLabel = z.infer<typeof CreateLabelSchema>;
 
 export const UpdateLabelSchema = z.object({
-  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo']).optional(),
+  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo', 'sports']).optional(),
   notes: z.string().nullable().optional(),
   event_ids: z.array(z.string()).optional(),
   song: LabelSongSchema.optional(),
@@ -128,6 +155,7 @@ export const UpdateLabelSchema = z.object({
   program: LabelProgramSchema.optional(),
   movie: LabelMovieSchema.optional(),
   promo: LabelPromoSchema.optional(),
+  sports: LabelSportsSchema.optional(),
 }).refine(
   data => {
     if (data.label_type && data.label_type === 'song' && !data.song) return false;
@@ -136,12 +164,14 @@ export const UpdateLabelSchema = z.object({
     if (data.label_type && data.label_type === 'program' && !data.program) return false;
     if (data.label_type && data.label_type === 'movie' && !data.movie) return false;
     if (data.label_type && data.label_type === 'promo' && !data.promo) return false;
-    if (data.label_type && data.label_type === 'song' && (data.ad || data.error || data.program || data.movie || data.promo)) return false;
-    if (data.label_type && data.label_type === 'ad' && (data.song || data.error || data.program || data.movie || data.promo)) return false;
-    if (data.label_type && data.label_type === 'error' && (data.song || data.ad || data.program || data.movie || data.promo)) return false;
-    if (data.label_type && data.label_type === 'program' && (data.song || data.ad || data.error || data.movie || data.promo)) return false;
-    if (data.label_type && data.label_type === 'movie' && (data.song || data.ad || data.error || data.program || data.promo)) return false;
-    if (data.label_type && data.label_type === 'promo' && (data.song || data.ad || data.error || data.program || data.movie)) return false;
+    if (data.label_type && data.label_type === 'sports' && !data.sports) return false;
+    if (data.label_type && data.label_type === 'song' && (data.ad || data.error || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type && data.label_type === 'ad' && (data.song || data.error || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type && data.label_type === 'error' && (data.song || data.ad || data.program || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type && data.label_type === 'program' && (data.song || data.ad || data.error || data.movie || data.promo || data.sports)) return false;
+    if (data.label_type && data.label_type === 'movie' && (data.song || data.ad || data.error || data.program || data.promo || data.sports)) return false;
+    if (data.label_type && data.label_type === 'promo' && (data.song || data.ad || data.error || data.program || data.movie || data.sports)) return false;
+    if (data.label_type && data.label_type === 'sports' && (data.song || data.ad || data.error || data.program || data.movie || data.promo)) return false;
     return true;
   },
   {
@@ -196,7 +226,7 @@ export interface LabelsListResponse extends BaseResponse {
 
 export const ProgramGuideLabelSchema = z.object({
   id: z.number(),
-  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo']),
+  label_type: z.enum(['song', 'ad', 'error', 'program', 'movie', 'promo', 'sports']),
   created_by: z.string(),
   created_at: z.date(),
   start_time: z.string(),
@@ -210,6 +240,7 @@ export const ProgramGuideLabelSchema = z.object({
   program: LabelProgramSchema.nullable(),
   movie: LabelMovieSchema.nullable(),
   promo: LabelPromoSchema.nullable(),
+  sports: LabelSportsSchema.nullable(),
 });
 
 export type ProgramGuideLabel = z.infer<typeof ProgramGuideLabelSchema>;

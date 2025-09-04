@@ -7,7 +7,13 @@ import { logger } from '../utils/logger';
 export class LabelService {
   static async createLabel(data: CreateLabel & { created_by: string }): Promise<Label> {
     try {
-      const eventIds = data.event_ids.map(id => BigInt(id));
+      const eventIds = data.event_ids.map(id => {
+        const parsed = BigInt(id);
+        if (isNaN(Number(parsed))) {
+          throw new AppError(`Invalid event ID: ${id}`, 400);
+        }
+        return parsed;
+      });
       const events = await prisma.event.findMany({
         where: { id: { in: eventIds } },
         select: { id: true, timestamp: true, image_path: true },
@@ -49,6 +55,8 @@ export class LabelService {
         labelData.movie = { create: data.movie };
       } else if (data.label_type === 'promo' && data.promo) {
         labelData.promo = { create: data.promo };
+      } else if (data.label_type === 'sports' && data.sports) {
+        labelData.sports = { create: { ...data.sports } };
       }
 
       const label = await prisma.label.create({
@@ -61,6 +69,7 @@ export class LabelService {
           program: true,
           movie: true,
           promo: true,
+          sports: true,
         },
       });
 
@@ -71,7 +80,7 @@ export class LabelService {
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo' | 'sports',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -84,6 +93,7 @@ export class LabelService {
         program: label.program,
         movie: label.movie,
         promo: label.promo,
+        sports: label.sports,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -218,6 +228,7 @@ export class LabelService {
             program: true,
             movie: true,
             promo: true,
+            sports: true,
           },
         }),
         prisma.label.count({ where: whereClause }),
@@ -227,7 +238,7 @@ export class LabelService {
         labels: labels.map(label => ({
           id: label.id,
           event_ids: label.events.map(e => e.event_id.toString()),
-          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
+          label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo' | 'sports',
           created_by: label.created_by,
           created_at: label.created_at,
           start_time: label.start_time.toString(),
@@ -242,6 +253,7 @@ export class LabelService {
           program: label.program,
           movie: label.movie,
           promo: label.promo,
+          sports: label.sports,
         })),
         total,
         totalPages: Math.ceil(total / limit),
@@ -267,7 +279,14 @@ export class LabelService {
 
       let image_paths: (string | null)[] = [];
       if (data.event_ids !== undefined) {
-        const eventIds = data.event_ids.map(id => BigInt(id));
+        const eventIds = data.event_ids.map(id => {
+          const parsed = BigInt(id);
+          if (isNaN(Number(parsed))) {
+            throw new AppError(`Invalid event ID: ${id}`, 400);
+          }
+          return parsed;
+        });
+
         const events = await prisma.event.findMany({
           where: { id: { in: eventIds } },
           select: { id: true, image_path: true, timestamp: true },
@@ -300,6 +319,23 @@ export class LabelService {
         updateData.movie = { upsert: { create: data.movie, update: data.movie } };
       } else if (data.label_type === 'promo' && data.promo) {
         updateData.promo = { upsert: { create: data.promo, update: data.promo } };
+      } else if (data.label_type === 'sports' && data.sports) {
+        updateData.sports = {
+          upsert: {
+            create: {
+              program_title: data.sports.program_title,
+              sport_type: data.sports.sport_type,
+              program_category: data.sports.program_category,
+              language: data.sports.language,
+            },
+            update: {
+              program_title: data.sports.program_title,
+              sport_type: data.sports.sport_type,
+              program_category: data.sports.program_category,
+              language: data.sports.language,
+            },
+          },
+        };
       }
 
       const label = await prisma.label.update({
@@ -313,6 +349,7 @@ export class LabelService {
           program: true,
           movie: true,
           promo: true,
+          sports: true,
         },
       });
 
@@ -326,7 +363,7 @@ export class LabelService {
       return {
         id: label.id,
         event_ids: label.events.map(e => e.event_id.toString()),
-        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
+        label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo' | 'sports',
         created_by: label.created_by,
         created_at: label.created_at,
         start_time: label.start_time.toString(),
@@ -339,6 +376,7 @@ export class LabelService {
         program: label.program,
         movie: label.movie,
         promo: label.promo,
+        sports: label.sports,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
@@ -446,6 +484,7 @@ export class LabelService {
           program: true,
           movie: true,
           promo: true,
+          sports: true,
         },
       });
 
@@ -453,7 +492,7 @@ export class LabelService {
         (label) =>
           ({
             id: label.id,
-            label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo',
+            label_type: label.label_type as 'song' | 'ad' | 'error' | 'program' | 'movie' | 'promo' | 'sports',
             created_by: label.created_by,
             created_at: label.created_at,
             start_time: label.start_time.toString(),
@@ -471,6 +510,7 @@ export class LabelService {
             program: label.program,
             movie: label.movie,
             promo: label.promo,
+            sports: label.sports,
           }) as ProgramGuideLabel
       );
     } catch (error) {

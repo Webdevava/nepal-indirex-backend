@@ -188,10 +188,38 @@ export class LabelController {
     }
 
     const result = await LabelService.getLabels(options);
- 
+
     return res.status(200).json({
       success: true,
       message: 'Movie labels fetched successfully',
+      data: result,
+    });
+  }
+
+  static async getSports(req: Request, res: Response<LabelsListResponse>) {
+    const options = {
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 10,
+      startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+      endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+      createdBy: req.query.createdBy as string | undefined,
+      labelType: 'sports' as string,
+      deviceId: req.query.deviceId as string | undefined,
+      sort: (req.query.sort as 'asc' | 'desc') || 'desc',
+    };
+
+    if (options.startDate && isNaN(options.startDate.getTime())) {
+      throw new AppError('Invalid start date', 400);
+    }
+    if (options.endDate && isNaN(options.endDate.getTime())) {
+      throw new AppError('Invalid end date', 400);
+    }
+
+    const result = await LabelService.getLabels(options);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Sports labels fetched successfully',
       data: result,
     });
   }

@@ -191,7 +191,7 @@ export class AuthService {
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) { // Fixed: was checking !user instead of !isValidPassword
+    if (!isValidPassword) {
       throw new AppError('Invalid credentials', 401);
     }
 
@@ -200,15 +200,13 @@ export class AuthService {
   }
 
   static async createInitialAdmin() {
-    const adminExists = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-    if (!adminExists) {
-      await this.createUser({
-        name: 'Madhu',
-        email: 'madhu@sharecast.org.np',
-        password: 'madhu@123',
-        role: 'ADMIN',
-      });
-      logger.info('Initial admin created successfully');
-    }
+    // Create initial admin without checking for existing admins
+    await this.createUser({
+      name: 'Madhu',
+      email: 'madhu@sharecast.org.np',
+      password: 'madhu@123',
+      role: 'ADMIN',
+    });
+    logger.info('Initial admin created successfully');
   }
 }

@@ -114,6 +114,7 @@ model Label {
   song       LabelSong?
   movie      LabelMovie?
   promo      LabelPromo?
+  sports     LabelSports?
 
   @@index([label_type])
   @@index([created_by])
@@ -143,11 +144,13 @@ model LabelSong {
 model LabelAd {
   label_id Int     @id
   type     AdType
-  brand    String
+  brand    String?
   product  String?
   category String?
   sector   String?
   format   String?
+  title    String?
+  language String?
   label    Label   @relation(fields: [label_id], references: [id], onDelete: Cascade)
 
   @@index([brand])
@@ -204,6 +207,19 @@ model LabelMovie {
   @@index([director])
 }
 
+model LabelSports {
+  label_id        Int        @id
+  program_title   String
+  sport_type      String
+  program_category String
+  language        String?
+  label           Label      @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@index([program_title])
+  @@index([sport_type])
+  @@index([program_category])
+}
+
 enum Role {
   ADMIN
   ANNOTATOR
@@ -212,6 +228,7 @@ enum Role {
 enum AdType {
   COMMERCIAL_BREAK
   SPOT_OUTSIDE_BREAK
+  PSA
 }
 
 enum PromoType {
