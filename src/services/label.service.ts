@@ -8,7 +8,8 @@ export class LabelService {
   static async createLabel(data: CreateLabel & { created_by: string }): Promise<Label> {
     try {
       const eventIds = data.event_ids.map(id => {
-        const parsed = BigInt(id);
+        const cleanedId = id.replace(/n$/, ''); // Remove trailing 'n' if present
+        const parsed = BigInt(cleanedId);
         if (isNaN(Number(parsed))) {
           throw new AppError(`Invalid event ID: ${id}`, 400);
         }
@@ -44,19 +45,37 @@ export class LabelService {
       };
 
       if (data.label_type === 'song' && data.song) {
-        labelData.song = { create: data.song };
+        labelData.song = { create: { ...data.song } };
       } else if (data.label_type === 'ad' && data.ad) {
-        labelData.ad = { create: data.ad };
+        labelData.ad = {
+          create: {
+            type: data.ad.type,
+            brand: data.ad.brand,
+            product: data.ad.product,
+            category: data.ad.category,
+            sector: data.ad.sector,
+            format: data.ad.format,
+            title: data.ad.title,
+            language: data.ad.language,
+          },
+        };
       } else if (data.label_type === 'error' && data.error) {
-        labelData.error = { create: data.error };
+        labelData.error = { create: { ...data.error } };
       } else if (data.label_type === 'program' && data.program) {
-        labelData.program = { create: data.program };
+        labelData.program = { create: { ...data.program } };
       } else if (data.label_type === 'movie' && data.movie) {
-        labelData.movie = { create: data.movie };
+        labelData.movie = { create: { ...data.movie } };
       } else if (data.label_type === 'promo' && data.promo) {
-        labelData.promo = { create: data.promo };
+        labelData.promo = { create: { ...data.promo } };
       } else if (data.label_type === 'sports' && data.sports) {
-        labelData.sports = { create: { ...data.sports } };
+        labelData.sports = {
+          create: {
+            program_title: data.sports.program_title,
+            sport_type: data.sports.sport_type,
+            program_category: data.sports.program_category,
+            language: data.sports.language,
+          },
+        };
       }
 
       const label = await prisma.label.create({
@@ -280,7 +299,8 @@ export class LabelService {
       let image_paths: (string | null)[] = [];
       if (data.event_ids !== undefined) {
         const eventIds = data.event_ids.map(id => {
-          const parsed = BigInt(id);
+          const cleanedId = id.replace(/n$/, ''); // Remove trailing 'n' if present
+          const parsed = BigInt(cleanedId);
           if (isNaN(Number(parsed))) {
             throw new AppError(`Invalid event ID: ${id}`, 400);
           }
@@ -308,17 +328,40 @@ export class LabelService {
       }
 
       if (data.label_type === 'song' && data.song) {
-        updateData.song = { upsert: { create: data.song, update: data.song } };
+        updateData.song = { upsert: { create: { ...data.song }, update: { ...data.song } } };
       } else if (data.label_type === 'ad' && data.ad) {
-        updateData.ad = { upsert: { create: data.ad, update: data.ad } };
+        updateData.ad = {
+          upsert: {
+            create: {
+              type: data.ad.type,
+              brand: data.ad.brand,
+              product: data.ad.product,
+              category: data.ad.category,
+              sector: data.ad.sector,
+              format: data.ad.format,
+              title: data.ad.title,
+              language: data.ad.language,
+            },
+            update: {
+              type: data.ad.type,
+              brand: data.ad.brand,
+              product: data.ad.product,
+              category: data.ad.category,
+              sector: data.ad.sector,
+              format: data.ad.format,
+              title: data.ad.title,
+              language: data.ad.language,
+            },
+          },
+        };
       } else if (data.label_type === 'error' && data.error) {
-        updateData.error = { upsert: { create: data.error, update: data.error } };
+        updateData.error = { upsert: { create: { ...data.error }, update: { ...data.error } } };
       } else if (data.label_type === 'program' && data.program) {
-        updateData.program = { upsert: { create: data.program, update: data.program } };
+        updateData.program = { upsert: { create: { ...data.program }, update: { ...data.program } } };
       } else if (data.label_type === 'movie' && data.movie) {
-        updateData.movie = { upsert: { create: data.movie, update: data.movie } };
+        updateData.movie = { upsert: { create: { ...data.movie }, update: { ...data.movie } } };
       } else if (data.label_type === 'promo' && data.promo) {
-        updateData.promo = { upsert: { create: data.promo, update: data.promo } };
+        updateData.promo = { upsert: { create: { ...data.promo }, update: { ...data.promo } } };
       } else if (data.label_type === 'sports' && data.sports) {
         updateData.sports = {
           upsert: {
@@ -382,7 +425,7 @@ export class LabelService {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new AppError('Label not found', 404);
       }
-      logger.error('Error updating label:', error);
+      logger.error('Error updating label:', { id, data, error });
       throw new AppError('Failed to update label', 500);
     }
   }
