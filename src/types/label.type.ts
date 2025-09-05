@@ -16,23 +16,11 @@ export const LabelAdSchema = z.object({
   type: z.enum(['COMMERCIAL_BREAK', 'SPOT_OUTSIDE_BREAK', 'PSA']),
   brand: z.string().min(1, 'Brand is required').nullable(),
   product: z.string().nullable(),
-  category: z.string().min(1, 'Category is required for PSA').nullable(),
+  category: z.string().nullable(),
   sector: z.string().nullable(),
   format: z.string().nullable(),
-  title: z.string().min(1, 'Title is required for PSA').nullable(),
-  language: z.string().min(1, 'Language is required for PSA').nullable(),
-}).refine(
-  (data) => {
-    if (data.type === 'PSA') {
-      return data.title !== null && data.category !== null && data.language !== null;
-    }
-    return true;
-  },
-  {
-    message: 'Title, category, and language are required for PSA ads',
-    path: ['type'],
-  }
-);
+  language: z.string().nullable(),
+});
 
 export type LabelAd = z.infer<typeof LabelAdSchema>;
 

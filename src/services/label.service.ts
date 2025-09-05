@@ -55,7 +55,6 @@ export class LabelService {
             category: data.ad.category,
             sector: data.ad.sector,
             format: data.ad.format,
-            title: data.ad.title,
             language: data.ad.language,
           },
         };
@@ -339,7 +338,6 @@ export class LabelService {
               category: data.ad.category,
               sector: data.ad.sector,
               format: data.ad.format,
-              title: data.ad.title,
               language: data.ad.language,
             },
             update: {
@@ -349,7 +347,6 @@ export class LabelService {
               category: data.ad.category,
               sector: data.ad.sector,
               format: data.ad.format,
-              title: data.ad.title,
               language: data.ad.language,
             },
           },
